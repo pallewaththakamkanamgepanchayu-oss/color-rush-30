@@ -1,0 +1,1 @@
+{"scripts":{"start":"node server.js"},"dependencies":{"cors":"latest","dotenv":"latest","express":"latest","multer":"latest","mysql2":"latest"},"devDependencies":{}}
