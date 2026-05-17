@@ -35,33 +35,45 @@
 const API_BASE = "https://color-rush-30-production.up.railway.app";
 
 async function reg() {
-  if (!name.value || !nic.value || !password.value) {
+  const nameInput = document.getElementById("name").value.trim();
+  const birthdayInput = document.getElementById("birthday").value;
+  const nicInput = document.getElementById("nic").value.trim();
+  const passwordInput = document.getElementById("password").value.trim();
+  const refInput = document.getElementById("ref").value.trim();
+  const photoInput = document.getElementById("photo");
+
+  if (!nameInput || !nicInput || !passwordInput) {
     alert("Please fill name, NIC and password");
     return;
   }
 
   let f = new FormData();
-  f.append("name", name.value);
-  f.append("birthday", birthday.value);
-  f.append("nic", nic.value);
-  f.append("password", password.value);
-  f.append("referred_by", ref.value);
+  f.append("name", nameInput);
+  f.append("birthday", birthdayInput);
+  f.append("nic", nicInput);
+  f.append("password", passwordInput);
+  f.append("referred_by", refInput);
 
-  if (photo.files[0]) {
-    f.append("nic_photo", photo.files[0]);
+  if (photoInput.files[0]) {
+    f.append("nic_photo", photoInput.files[0]);
   }
 
-  const r = await fetch(API_BASE + "/api/register", {
-    method: "POST",
-    body: f
-  });
+  try {
+    const r = await fetch(API_BASE + "/api/register", {
+      method: "POST",
+      body: f
+    });
 
-  const d = await r.json();
+    const d = await r.json();
 
-  alert(d.message + (d.referral_code ? " Your code: " + d.referral_code : ""));
+    alert(d.message + (d.referral_code ? " Your code: " + d.referral_code : ""));
 
-  if (r.ok) {
-    location.href = "login.html";
+    if (r.ok) {
+      location.href = "login.html";
+    }
+  } catch (err) {
+    alert("Register failed");
+    console.log(err);
   }
 }
 </script>
