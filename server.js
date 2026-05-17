@@ -3,6 +3,7 @@ require("dotenv").config();
 const express = require("express");
 const mysql = require("mysql2");
 const cors = require("cors");
+const path = require("path");
 
 const app = express();
 
@@ -11,7 +12,10 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
 
-// MySQL Connection
+// FRONTEND FILES
+app.use(express.static(__dirname));
+
+// MYSQL
 const db = mysql.createConnection({
   host: process.env.DB_HOST,
   port: process.env.DB_PORT,
@@ -23,7 +27,7 @@ const db = mysql.createConnection({
   },
 });
 
-// Connect Database
+// DATABASE CONNECT
 db.connect((err) => {
   if (err) {
     console.log("Database connection failed");
@@ -34,21 +38,29 @@ db.connect((err) => {
   console.log("MySQL Connected");
 });
 
-// Test Route
+// HOME PAGE
 app.get("/", (req, res) => {
-  res.send("Server Running Successfully");
+  res.sendFile(path.join(__dirname, "login.html"));
 });
 
-// API Route
+// TEST API
 app.get("/api/round", (req, res) => {
   res.json({
     success: true,
-    color: "green",
-    number: 5,
+    current: {
+      round_no: 1,
+      seconds_left: 30,
+    },
+    previous: [
+      {
+        round_no: 0,
+        result_color: "Green",
+      },
+    ],
   });
 });
 
-// Start Server
+// START SERVER
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
