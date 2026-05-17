@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Color Rush 30</title>
+<link rel="stylesheet" href="style.css">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+
+<body>
+<div class="app">
+
+<div id="home" class="page active">
+  <div class="row">
+    <h1>COLOR <span>RUSH 30</span></h1>
+    <button class="btn2 view" onclick="show('profile')">👤</button>
+  </div>
+
+  <div class="card glow">
+    <p>Balance</p>
+    <h1>$<span id="bal">0</span></h1>
+  </div>
+
+  <div class="card center roundCard">
+    <p>Round #<span id="round">0</span></p>
+    <h1 id="timer" class="yellow">00:30</h1>
+    <small>Result comes once only after 30 seconds.</small>
+  </div>
+
+  <h3 class="center">Choose Color</h3>
+
+  <div class="balls">
+    <button class="ball yellowball" onclick="sel('Yellow',this)"></button>
+    <button class="ball red" onclick="sel('Red',this)"></button>
+    <button class="ball green" onclick="sel('Green',this)"></button>
+  </div>
+
+  <p class="center">Selected: <b id="picked">None</b></p>
+
+  <div class="card">
+    <p class="yellow">Minimum bet $0.50. Win profit is 75%.</p>
+    <input id="betAmount" type="number" value="0.50" min="0.50" step="0.01">
+    <button class="btn" onclick="bet()">PLACE BET</button>
+  </div>
+
+  <div id="tradeResult" class="tradeResult" style="display:none"></div>
+
+  <div class="card">
+    <h3>Previous Results</h3>
+    <div id="prev" class="row"></div>
+  </div>
+</div>
+
+<div id="profile" class="page">
+  <button class="btn2 view" onclick="show('home')">← Back</button>
+  <h1 class="center">MY <span>PROFILE</span></h1>
+
+  <div class="card center">
+    <h2 id="pname">User</h2>
+    <p>User ID: <span id="uid"></span></p>
+    <p>Referral: <b class="yellow" id="rcode"></b></p>
+    <p>Balance: <b>$<span id="profileBal">0</span></b></p>
+  </div>
+
+  <div class="card">
+    <button class="btn" onclick="openDeposit()">Deposit</button>
+    <button class="btn" onclick="openWithdraw()">Withdraw</button>
+    <button class="btn" onclick="openReferral()">Referral</button>
+    <button class="btn" onclick="show('history')">Bet History</button>
+    <button class="btn" onclick="logout()">Logout</button>
+  </div>
+</div>
+
+<div id="deposit" class="page">
+  <button class="btn2 view" onclick="show('home')">← Back</button>
+  <h1 class="center">DEPOSIT <span>REQUEST</span></h1>
+
+  <div class="card">
+    <p class="yellow">Minimum deposit is $15</p>
+
+    <div class="binanceBox">
+      <small>Send payment to this Binance ID</small>
+      <h2 id="depBid">Loading...</h2>
+      <button class="btn2 ok" onclick="copyBid()">Copy Binance ID</button>
+    </div>
+
+    <input id="dn" placeholder="Name">
+    <input id="db" placeholder="Your Binance ID">
+    <input id="da" type="number" min="15" step="0.01" placeholder="Amount - minimum $15">
+
+    <label>Receipt Photo</label>
+    <input id="dr" type="file" accept="image/*">
+
+    <button class="btn" onclick="deposit()">Submit Deposit</button>
+  </div>
+</div>
+
+<div id="withdraw" class="page">
+  <button class="btn2 view" onclick="show('profile')">← Back</button>
+  <h1 class="center">WITHDRAW <span>REQUEST</span></h1>
+
+  <div class="card center">
+    <p class="yellow">Withdraw time: 8.00 PM - 10.00 PM</p>
+    <p class="yellow">Minimum withdraw is $15</p>
+    <div id="eligibilityBox" class="notice"></div>
+  </div>
+
+  <div class="card">
+    <label>Withdraw Option</label>
+    <select id="wm">
+      <option value="default">14 days + 1 referral / deposit eligibility</option>
+      <option id="fiveRefOption" value="5_referrals">5 referrals + 3 days</option>
+    </select>
+
+    <input id="wn" placeholder="Name">
+    <input id="wnic" placeholder="NIC number">
+    <input id="wb" placeholder="Binance ID">
+    <input id="wa" type="number" min="15" step="0.01" placeholder="Amount - minimum $15">
+
+    <button id="withdrawBtn" class="btn" onclick="withdraw()">Submit Withdraw</button>
+  </div>
+</div>
+
+<div id="referral" class="page">
+  <button class="btn2 view" onclick="show('profile')">← Back</button>
+  <h1 class="center">MY <span>REFERRAL</span></h1>
+
+  <div class="card center">
+    <p>Your referral code</p>
+    <h2 class="yellow" id="refcode"></h2>
+
+    <input id="editRef" placeholder="Edit referral code">
+
+    <button class="btn" onclick="saveRef()">Save Referral Code</button>
+    <button class="btn" onclick="copyReferral()">Copy Code</button>
+
+    <p class="notice">If a user joins with your code and deposits $15 or more, you get $5 bonus after admin approval.</p>
+  </div>
+
+  <div class="card">
+    <h3>Joined using my code</h3>
+    <div id="refList"></div>
+  </div>
+</div>
+
+<div id="history" class="page">
+  <button class="btn2 view" onclick="show('profile')">← Back</button>
+  <h1>BET <span>HISTORY</span></h1>
+
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th>Round</th>
+          <th>Color</th>
+          <th>Amount</th>
+          <th>Payout</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="bets"></tbody>
+    </table>
+  </div>
+</div>
+
+</div>
+
+<script>
+const API_BASE = "https://color-rush-30-production.up.railway.app";
+
+let user = JSON.parse(localStorage.getItem("user") || "null");
+
+if (!user) {
+  location.href = "login.html";
+}
+
+let chosen = null;
+let sec = 30;
+let lastRound = null;
+let lastShownBetId = localStorage.getItem("lastShownBetId") || "";
+
+function api(path) {
+  return API_BASE + path;
+}
+
+function nameOf(u) {
+  return (u && u.name && u.name !== "undefined")
+    ? u.name
+    : (u && u.nic ? "User " + u.nic : "User");
+}
+
+function show(id) {
+  document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+
+  loadUser();
+
+  if (id === "history") {
+    loadBets();
+  }
+}
+
+function logout() {
+  localStorage.removeItem("user");
+  location.href = "login.html";
+}
+
+async function loadUser() {
+  try {
+    const res = await fetch(api("/api/user/" + user.id));
+    if (!res.ok) return;
+
+    user = await res.json();
+    localStorage.setItem("user", JSON.stringify(user));
+
+    bal.innerText = Number(user.balance || 0).toFixed(2);
+    profileBal.innerText = Number(user.balance || 0).toFixed(2);
+    pname.innerText = nameOf(user);
+    uid.innerText = user.id || "";
+    rcode.innerText = user.referral_code || "";
+    refcode.innerText = user.referral_code || "";
+    editRef.value = user.referral_code || "";
+
+    dn.value = nameOf(user);
+    wn.value = nameOf(user);
+    wnic.value = user.nic || "";
+
+  } catch (e) {
+    console.log("loadUser error", e);
+  }
+}
+
+async function loadRound() {
+  try {
+    const res = await fetch(api("/api/round"));
+    const d = await res.json();
+
+    const roundNo = d.current?.round_no || d.round_no || 0;
+    const secondsLeft = d.current?.seconds_left ?? d.seconds_left ?? 30;
+
+    round.innerText = roundNo;
+    sec = Number(secondsLeft);
+    timer.innerText = "00:" + String(sec).padStart(2, "0");
+
+    if (lastRound !== roundNo) {
+      lastRound = roundNo;
+      chosen = null;
+      picked.innerText = "None";
+      document.querySelectorAll(".ball").forEach(x => x.classList.remove("selected"));
+      checkLatestBetResult();
+    }
+
+    if (Array.isArray(d.previous)) {
+      prev.innerHTML = d.previous.map(x => {
+        const color = x.result_color || x.color || "";
+        return `
+          <div class="small-ball ${color === "Yellow" ? "yellowball" : color.toLowerCase()}">
+            <b>#${x.round_no}</b>
+            <small>${color}</small>
+          </div>
+        `;
+      }).join("");
+    }
+
+  } catch (e) {
+    console.log("loadRound error", e);
+  }
+}
+
+function sel(color, btn) {
+  chosen = color;
+  picked.innerText = color;
+
+  document.querySelectorAll(".ball").forEach(x => x.classList.remove("selected"));
+  btn.classList.add("selected");
+}
+
+async function bet() {
+  if (!chosen) return alert("Please select one color");
+  if (Number(betAmount.value) < 0.5) return alert("Minimum bet is $0.50");
+
+  try {
+    const res = await fetch(api("/api/bet"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        user_id: user.id,
+        color: chosen,
+        amount: betAmount.value
+      })
+    });
+
+    const d = await res.json();
+    alert(d.message || "Bet placed");
+
+    loadUser();
+    loadBets();
+
+  } catch (e) {
+    alert("Bet error. Check backend routes.");
+    console.log(e);
+  }
+}
+
+async function checkLatestBetResult() {
+  try {
+    const res = await fetch(api("/api/bets/" + user.id));
+    if (!res.ok) return;
+
+    const d = await res.json();
+    const b = d.find(x => x.status === "Win" || x.status === "Lost");
+
+    if (!b || String(b.id) === lastShownBetId) return;
+
+    lastShownBetId = String(b.id);
+    localStorage.setItem("lastShownBetId", lastShownBetId);
+
+    const win = b.status === "Win";
+
+    tradeResult.style.display = "block";
+    tradeResult.className = "tradeResult " + (win ? "winBox" : "loseBox");
+
+    tradeResult.innerHTML = `
+      <h2>${win ? "🎉 YOU WIN" : "😢 YOU LOST"}</h2>
+      <p>Round #${b.round_no} | Your color: <b>${b.color}</b></p>
+      <h1>${win ? "+ $" + (Number(b.payout) - Number(b.amount)).toFixed(2) : "- $" + Number(b.amount).toFixed(2)}</h1>
+      <small>${win ? "Payout: $" + Number(b.payout).toFixed(2) : "Better luck next round"}</small>
+    `;
+
+    setTimeout(() => {
+      tradeResult.style.display = "none";
+    }, 9000);
+
+    loadUser();
+
+  } catch (e) {
+    console.log("result error", e);
+  }
+}
+
+async function openDeposit() {
+  show("deposit");
+
+  try {
+    const s = await (await fetch(api("/api/settings"))).json();
+    depBid.innerText = s.deposit_binance_id || "Not set";
+  } catch (e) {
+    depBid.innerText = "Not set";
+  }
+}
+
+function copyBid() {
+  navigator.clipboard.writeText(depBid.innerText);
+  alert("Binance ID copied");
+}
+
+async function deposit() {
+  if (Number(da.value) < 15) return alert("Minimum deposit is $15");
+
+  const f = new FormData();
+  f.append("user_id", user.id);
+  f.append("name", dn.value);
+  f.append("binance_id", db.value);
+  f.append("amount", da.value);
+
+  if (dr.files[0]) {
+    f.append("receipt_photo", dr.files[0]);
+  }
+
+  try {
+    const res = await fetch(api("/api/deposit"), {
+      method: "POST",
+      body: f
+    });
+
+    const d = await res.json();
+    alert(d.message || "Deposit request sent");
+
+    if (res.ok) {
+      dn.value = "";
+      db.value = "";
+      da.value = "";
+      dr.value = "";
+      show("home");
+    }
+
+  } catch (e) {
+    alert("Deposit error");
+    console.log(e);
+  }
+}
+
+async function openWithdraw() {
+  show("withdraw");
+
+  try {
+    const e = await (await fetch(api("/api/withdraw-eligibility/" + user.id))).json();
+
+    eligibilityBox.innerHTML = `
+      <b>${e.ok ? "✅ Withdraw allowed" : "🔒 Withdraw locked"}</b><br>
+      ${e.message || ""}<br>
+      Referrals: ${e.referral_count || 0}
+    `;
+
+    withdrawBtn.disabled = !e.ok;
+    withdrawBtn.style.opacity = e.ok ? 1 : .45;
+    fiveRefOption.disabled = !e.refs5;
+
+  } catch (err) {
+    eligibilityBox.innerHTML = "Withdraw eligibility cannot load.";
+  }
+}
+
+async function withdraw() {
+  if (Number(wa.value) < 15) return alert("Minimum withdraw is $15");
+
+  try {
+    const res = await fetch(api("/api/withdraw"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        user_id: user.id,
+        name: wn.value,
+        nic: wnic.value,
+        binance_id: wb.value,
+        amount: wa.value,
+        method: wm.value
+      })
+    });
+
+    const d = await res.json();
+    alert(d.message || "Withdraw request sent");
+
+    if (res.ok) {
+      wb.value = "";
+      wa.value = "";
+      show("home");
+    }
+
+  } catch (e) {
+    alert("Withdraw error");
+  }
+}
+
+async function openReferral() {
+  show("referral");
+
+  try {
+    const d = await (await fetch(api("/api/user/" + user.id + "/referrals"))).json();
+
+    refList.innerHTML = d.length
+      ? d.map(x => `<p>#${x.id} ${nameOf(x)} - ${x.status} - ${new Date(x.created_at).toLocaleDateString()}</p>`).join("")
+      : "No referrals yet";
+
+  } catch (e) {
+    refList.innerHTML = "No referrals yet";
+  }
+}
+
+function copyReferral() {
+  navigator.clipboard.writeText(refcode.innerText);
+  alert("Copied");
+}
+
+async function saveRef() {
+  try {
+    const res = await fetch(api("/api/user/" + user.id + "/referral"), {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        referral_code: editRef.value
+      })
+    });
+
+    const d = await res.json();
+    alert(d.message || "Saved");
+    loadUser();
+
+  } catch (e) {
+    alert("Referral save error");
+  }
+}
+
+async function loadBets() {
+  try {
+    const res = await fetch(api("/api/bets/" + user.id));
+    if (!res.ok) return;
+
+    const d = await res.json();
+
+    bets.innerHTML = d.map(b => `
+      <tr>
+        <td>${b.round_no}</td>
+        <td>${b.color}</td>
+        <td>$${Number(b.amount).toFixed(2)}</td>
+        <td>$${Number(b.payout || 0).toFixed(2)}</td>
+        <td><span class="badge ${b.status}">${b.status}</span></td>
+      </tr>
+    `).join("");
+
+  } catch (e) {
+    console.log("loadBets error", e);
+  }
+}
+
+setInterval(() => {
+  if (sec > 0) {
+    sec--;
+    timer.innerText = "00:" + String(sec).padStart(2, "0");
+  }
+}, 1000);
+
+setInterval(() => {
+  loadRound();
+  loadUser();
+}, 2000);
+
+loadUser();
+loadRound();
+</script>
+
+</body>
+</html>
