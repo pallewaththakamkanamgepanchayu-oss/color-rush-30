@@ -1,3 +1,82 @@
-<!DOCTYPE html><html><head><title>Register</title><link rel="stylesheet" href="style.css"></head><body><div class="app"><h1 class="center">REGISTER <span>ACCOUNT</span></h1><div class="card"><input id="name" placeholder="Full name"><label>Birthday</label><input id="birthday" type="date"><input id="nic" placeholder="NIC number"><input id="password" type="password" placeholder="Password"><input id="ref" placeholder="Referral code (optional)"><label>NIC Photo</label><input id="photo" type="file" accept="image/*"><button class="btn" onclick="reg()">Submit Register</button><p class="center"><a class="link" href="login.html">Back to login</a></p></div></div><script>
-async function reg(){let f=new FormData();f.append('name',name.value);f.append('birthday',birthday.value);f.append('nic',nic.value);f.append('password',password.value);f.append('referred_by',ref.value);if(photo.files[0])f.append('nic_photo',photo.files[0]);const r=await fetch('/api/register',{method:'POST',body:f});const d=await r.json();alert(d.message+(d.referral_code?' Your code: '+d.referral_code:''));if(r.ok)location.href='login.html'}
-</script></body></html>
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Register</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<div class="container">
+  <h1>COLOR RUSH 30</h1>
+
+  <div class="card">
+    <h2>Register</h2>
+
+    <input type="text" id="name" placeholder="Enter Name">
+
+    <input type="text" id="nic" placeholder="Enter NIC">
+
+    <input type="password" id="password" placeholder="Enter Password">
+
+    <button onclick="registerUser()">Register</button>
+
+    <p>
+      Already have account?
+      <a href="login.html">Login</a>
+    </p>
+  </div>
+</div>
+
+<script>
+async function registerUser() {
+
+  const name = document.getElementById("name").value;
+  const nic = document.getElementById("nic").value;
+  const password = document.getElementById("password").value;
+
+  if (!nic || !password) {
+    alert("Please fill all fields");
+    return;
+  }
+
+  try {
+
+    const response = await fetch("/api/register", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        name,
+        nic,
+        password
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+
+      alert("Register Success");
+
+      window.location.href = "login.html";
+
+    } else {
+
+      alert(data.message);
+
+    }
+
+  } catch (error) {
+
+    console.log(error);
+
+    alert("Server Error");
+
+  }
+}
+</script>
+
+</body>
+</html>
