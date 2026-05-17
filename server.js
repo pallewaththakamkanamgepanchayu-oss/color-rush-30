@@ -1,62 +1,54 @@
-require('dotenv').config();
-const express=require('express'),cors=require('cors'),multer=require('multer'),mysql=require('mysql2/promise'),path=require('path'),fs=require('fs');
-const app=express(),PORT=process.env.PORT||3000;const uploadDir=path.join(__dirname,'public','uploads');fs.mkdirSync(uploadDir,{recursive:true});
-const storage=multer.diskStorage({destination:(q,f,cb)=>cb(null,uploadDir),filename:(q,f,cb)=>cb(null,Date.now()+'-'+Math.round(Math.random()*1e9)+path.extname(f.originalname))});
-const upload=multer({storage});app.use(cors());app.use(express.json());app.use(express.urlencoded({extended:true}));app.use(express.static(path.join(__dirname,'public')));
-const pool=mysql.createPool({host:process.env.DB_HOST||'localhost',user:process.env.DB_USER||'root',password:process.env.DB_PASSWORD||'',database:process.env.DB_NAME||'color_rush_30',waitForConnections:true,connectionLimit:10});
-async function query(sql,params=[]){const [r]=await pool.query(sql,params);return r}function fileUrl(f){return f?`/uploads/${f.filename||f}`:null}function genReferral(){return 'CR30-'+Math.random().toString(36).substring(2,8).toUpperCase()}function days(d){return Math.floor((Date.now()-new Date(d).getTime())/86400000)}
-async function initRound(){const r=await query('SELECT round_no FROM rounds ORDER BY round_no DESC LIMIT 1');if(!r.length)await query('INSERT INTO rounds(round_no,status) VALUES(1058,"Playing")')}
-async function userEligibility(uid){const u=(await query('SELECT * FROM users WHERE id=?',[uid]))[0];if(!u)return {ok:false,message:'User not found'};const refCount=(await query('SELECT COUNT(*) c, MIN(created_at) firstDate FROM users WHERE referred_by=? AND status="Approved"',[u.referral_code]))[0];const dep50=(await query('SELECT MIN(created_at) d FROM deposits WHERE user_id=? AND status="Approved" AND amount>=50',[uid]))[0].d;const dep100=(await query('SELECT MIN(created_at) d FROM deposits WHERE user_id=? AND status="Approved" AND amount>=100',[uid]))[0].d;const base=(days(u.created_at)>=14&&Number(refCount.c)>=1);const refs5=Number(refCount.c)>=5&&refCount.firstDate&&days(refCount.firstDate)>=3;const d50=dep50&&days(dep50)>=3;const d100=!!dep100;return {user:u,referral_count:Number(refCount.c),base,refs5,d50,d100,ok:base||refs5||d50||d100,message:base||refs5||d50||d100?'Withdraw allowed':'Withdraw locked: need 14 days + 1 referral OR 5 referrals + 3 days OR $50 deposit + 3 days OR $100 deposit.'}}
-app.post('/api/register',upload.single('nic_photo'),async(req,res)=>{try{const{name,birthday,nic,password,referred_by}=req.body;if(!name||!nic||!password)return res.status(400).json({message:'Name, NIC and password required'});let referral_code=genReferral();while((await query('SELECT id FROM users WHERE referral_code=?',[referral_code])).length)referral_code=genReferral();await query('INSERT INTO users(name,birthday,nic,password,referral_code,referred_by,nic_photo,balance,status) VALUES(?,?,?,?,?,?,?,0,"Pending")',[name,birthday||null,nic,password,referral_code,referred_by||null,fileUrl(req.file)]);res.json({message:'Register success. Wait admin approval.',referral_code})}catch(e){res.status(500).json({message:e.message})}});
-app.post('/api/login',async(req,res)=>{const{nic,password}=req.body;const r=await query('SELECT * FROM users WHERE nic=? AND password=?',[nic,password]);if(!r.length)return res.status(401).json({message:'Invalid login'});if(r[0].status!=='Approved')return res.status(403).json({message:'Account not approved by admin'});res.json({user:r[0]})});
-app.get('/api/user/:id',async(req,res)=>res.json((await query('SELECT id,name,birthday,nic,referral_code,referred_by,nic_photo,balance,status,created_at FROM users WHERE id=?',[req.params.id]))[0]));
-app.put('/api/user/:id/referral',async(req,res)=>{try{await query('UPDATE users SET referral_code=? WHERE id=?',[req.body.referral_code,req.params.id]);res.json({message:'Referral code updated'})}catch(e){res.status(400).json({message:'Referral code already used'})}});
-app.get('/api/user/:id/referrals',async(req,res)=>res.json(await query('SELECT id,name,nic,status,created_at FROM users WHERE referred_by=(SELECT referral_code FROM users WHERE id=?) ORDER BY id DESC',[req.params.id])));
-app.get('/api/settings',async(req,res)=>{const r=await query('SELECT setting_key,setting_value FROM settings');res.json(Object.fromEntries(r.map(x=>[x.setting_key,x.setting_value])))});
-app.put('/api/settings/payment',async(req,res)=>{await query('INSERT INTO settings(setting_key,setting_value) VALUES("deposit_binance_id",?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)',[req.body.deposit_binance_id]);res.json({message:'Payment settings updated'})});
+require("dotenv").config();
 
-async function finishPlayingRound(resultOverride=null){
-  const colors=['Yellow','Red','Green'];
-  const r=await query('SELECT round_no FROM rounds WHERE status="Playing" ORDER BY round_no DESC LIMIT 1');
-  if(!r.length) return null;
-  const roundNo=r[0].round_no;
-  let saved=(await query('SELECT setting_value FROM settings WHERE setting_key="next_result"'))[0]?.setting_value || 'Random';
-  const result=(resultOverride && resultOverride!=='Random') ? resultOverride : (saved && saved!=='Random' ? saved : colors[Math.floor(Math.random()*3)]);
-  await query('UPDATE rounds SET result_color=?,status="Finished",finished_at=NOW() WHERE round_no=?',[result,roundNo]);
-  const bets=await query('SELECT * FROM bets WHERE round_no=? AND status="Placed"',[roundNo]);
-  for(const b of bets){
-    if(b.color===result){
-      const payout=Number(b.amount)*1.75;
-      await query('UPDATE bets SET status="Win", payout=? WHERE id=?',[payout,b.id]);
-      await query('UPDATE users SET balance=balance+? WHERE id=?',[payout,b.user_id]);
-    }else{
-      await query('UPDATE bets SET status="Lost", payout=0 WHERE id=?',[b.id]);
-    }
+const express = require("express");
+const mysql = require("mysql2");
+const cors = require("cors");
+
+const app = express();
+
+app.use(cors());
+app.use(express.json());
+
+const PORT = process.env.PORT || 3000;
+
+// MySQL Connection
+const db = mysql.createConnection({
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  ssl: {
+    rejectUnauthorized: false,
+  },
+});
+
+// Connect Database
+db.connect((err) => {
+  if (err) {
+    console.log("Database connection failed");
+    console.log(err);
+    return;
   }
-  await query('INSERT INTO rounds(round_no,status,started_at) VALUES(?,"Playing",NOW())',[roundNo+1]);
-  await query('INSERT INTO settings(setting_key,setting_value) VALUES("next_result","Random") ON DUPLICATE KEY UPDATE setting_value="Random"');
-  return {result_color:result,next_round:roundNo+1,round_no:roundNo};
-}
-async function tickRound(){
-  const r=(await query('SELECT round_no,started_at,TIMESTAMPDIFF(SECOND,started_at,NOW()) elapsed FROM rounds WHERE status="Playing" ORDER BY round_no DESC LIMIT 1'))[0];
-  if(!r){ await initRound(); return; }
-  if(Number(r.elapsed)>=30) await finishPlayingRound();
-}
 
-app.get('/api/round',async(req,res)=>{await tickRound();const r=await query('SELECT *,GREATEST(0,30-TIMESTAMPDIFF(SECOND,started_at,NOW())) seconds_left FROM rounds WHERE status="Playing" ORDER BY round_no DESC LIMIT 1');const prev=await query('SELECT round_no,result_color FROM rounds WHERE result_color IS NOT NULL ORDER BY round_no DESC LIMIT 5');const set=(await query('SELECT setting_value FROM settings WHERE setting_key="next_result"'))[0]?.setting_value||'Random';res.json({current:r[0],previous:prev,next_result:set})});
-app.post('/api/bet',async(req,res)=>{const{user_id,color,amount}=req.body;const amt=Number(amount);if(!['Yellow','Red','Green'].includes(color)||amt<0.5)return res.status(400).json({message:'Minimum bet is $0.50'});const u=await query('SELECT balance FROM users WHERE id=?',[user_id]);if(!u.length||Number(u[0].balance)<amt)return res.status(400).json({message:'Not enough balance'});const r=await query('SELECT round_no FROM rounds WHERE status="Playing" ORDER BY round_no DESC LIMIT 1');await query('UPDATE users SET balance=balance-? WHERE id=?',[amt,user_id]);await query('INSERT INTO bets(user_id,round_no,color,amount) VALUES(?,?,?,?)',[user_id,r[0].round_no,color,amt]);res.json({message:'Bet placed'})});
-app.post('/api/finish-round',async(req,res)=>{const done=await finishPlayingRound(req.body.result_color);if(!done)return res.status(400).json({message:'No playing round'});res.json({message:'Round finished',...done})});
-app.put('/api/admin/next-result',async(req,res)=>{const val=['Yellow','Red','Green','Random'].includes(req.body.result_color)?req.body.result_color:'Random';await query('INSERT INTO settings(setting_key,setting_value) VALUES("next_result",?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)',[val]);res.json({message:'Next result saved. It will apply when the 30s timer finishes.',next_result:val})});
-app.get('/api/bets/:user_id',async(req,res)=>res.json(await query('SELECT * FROM bets WHERE user_id=? ORDER BY id DESC',[req.params.user_id])));
-app.post('/api/deposit',upload.single('receipt_photo'),async(req,res)=>{const{user_id,name,binance_id,amount}=req.body;const amt=Number(amount);if(amt<15)return res.status(400).json({message:'Minimum deposit is $15'});if(!req.file)return res.status(400).json({message:'Receipt photo required'});await query('INSERT INTO deposits(user_id,name,binance_id,amount,receipt_photo) VALUES(?,?,?,?,?)',[user_id,name,binance_id,amt,fileUrl(req.file)]);res.json({message:'Deposit request sent'})});
-app.get('/api/withdraw-eligibility/:user_id',async(req,res)=>res.json(await userEligibility(req.params.user_id)));
-app.post('/api/withdraw',async(req,res)=>{const{user_id,name,nic,binance_id,amount,method}=req.body;const amt=Number(amount),hour=new Date().getHours();if(hour<20||hour>=22)return res.status(400).json({message:'Withdraw only available 8.00 PM - 10.00 PM'});if(amt<15)return res.status(400).json({message:'Minimum withdraw is $15'});const el=await userEligibility(user_id);if(!el.ok)return res.status(400).json({message:el.message});const u=await query('SELECT balance FROM users WHERE id=?',[user_id]);if(!u.length||Number(u[0].balance)<amt)return res.status(400).json({message:'Not enough balance'});await query('INSERT INTO withdraws(user_id,name,nic,binance_id,amount,method) VALUES(?,?,?,?,?,?)',[user_id,name,nic,binance_id,amt,method||'default']);res.json({message:'Withdraw request sent'})});
-app.get('/api/admin/users',async(req,res)=>res.json(await query('SELECT id,name,birthday,nic,referral_code,referred_by,nic_photo,balance,status,created_at FROM users ORDER BY id DESC')));
-app.get('/api/admin/user/:id/full',async(req,res)=>{const id=req.params.id;const user=(await query('SELECT id,name,birthday,nic,referral_code,referred_by,nic_photo,balance,status,created_at FROM users WHERE id=?',[id]))[0];const deposits=await query('SELECT * FROM deposits WHERE user_id=? ORDER BY id DESC',[id]);const withdraws=await query('SELECT * FROM withdraws WHERE user_id=? ORDER BY id DESC',[id]);const bets=await query('SELECT * FROM bets WHERE user_id=? ORDER BY id DESC LIMIT 50',[id]);const referrals=await query('SELECT id,name,nic,status,created_at FROM users WHERE referred_by=? ORDER BY id DESC',[user.referral_code]);res.json({user,deposits,withdraws,bets,referrals})});
-app.put('/api/admin/users/:id/status',async(req,res)=>{await query('UPDATE users SET status=? WHERE id=?',[req.body.status,req.params.id]);res.json({message:'User updated'})});
-app.get('/api/admin/deposits',async(req,res)=>res.json(await query('SELECT d.*,u.nic FROM deposits d JOIN users u ON d.user_id=u.id ORDER BY d.id DESC')));
-app.put('/api/admin/deposits/:id/status',async(req,res)=>{const rows=await query('SELECT * FROM deposits WHERE id=?',[req.params.id]);if(!rows.length)return res.status(404).json({message:'Deposit not found'});const dep=rows[0];if(dep.status==='Pending'&&req.body.status==='Approved'){await query('UPDATE users SET balance=balance+? WHERE id=?',[dep.amount,dep.user_id]);if(Number(dep.amount)>=15&&!dep.referral_bonus_paid){const owner=await query('SELECT referrer.id FROM users joined JOIN users referrer ON joined.referred_by=referrer.referral_code WHERE joined.id=?',[dep.user_id]);if(owner.length){await query('UPDATE users SET balance=balance+5 WHERE id=?',[owner[0].id]);await query('UPDATE deposits SET referral_bonus_paid=1 WHERE id=?',[dep.id])}}}await query('UPDATE deposits SET status=? WHERE id=?',[req.body.status,req.params.id]);res.json({message:'Deposit updated'})});
-app.get('/api/admin/withdraws',async(req,res)=>res.json(await query('SELECT * FROM withdraws ORDER BY id DESC')));
-app.put('/api/admin/withdraws/:id/status',async(req,res)=>{const rows=await query('SELECT * FROM withdraws WHERE id=?',[req.params.id]);if(!rows.length)return res.status(404).json({message:'Withdraw not found'});const wd=rows[0];if(wd.status==='Pending'&&req.body.status==='Approved')await query('UPDATE users SET balance=balance-? WHERE id=?',[wd.amount,wd.user_id]);await query('UPDATE withdraws SET status=? WHERE id=?',[req.body.status,req.params.id]);res.json({message:'Withdraw updated'})});
-app.get('/api/admin/stats',async(req,res)=>{const users=(await query('SELECT COUNT(*) c FROM users'))[0].c;const deps=(await query('SELECT COALESCE(SUM(amount),0) s,COUNT(*) c FROM deposits WHERE status="Approved"'))[0];const wds=(await query('SELECT COALESCE(SUM(amount),0) s,COUNT(*) c FROM withdraws WHERE status="Approved"'))[0];const bets=(await query('SELECT COUNT(*) c FROM bets'))[0].c;const today=(await query('SELECT COUNT(*) total,SUM(status="Win") winTrades,SUM(status="Lost") lostTrades,COALESCE(SUM(CASE WHEN status="Lost" THEN amount ELSE 0 END),0) userLost,COALESCE(SUM(CASE WHEN status="Win" THEN payout-amount ELSE 0 END),0) userProfit FROM bets WHERE DATE(created_at)=CURDATE()'))[0];res.json({users,deposits:deps,withdraws:wds,bets,today})});
-initRound().then(()=>app.listen(PORT,()=>console.log(`Server running: http://localhost:${PORT}`))).catch(e=>console.error(e));
+  console.log("MySQL Connected");
+});
+
+// Test Route
+app.get("/", (req, res) => {
+  res.send("Server Running Successfully");
+});
+
+// API Route
+app.get("/api/round", (req, res) => {
+  res.json({
+    success: true,
+    color: "green",
+    number: 5,
+  });
+});
+
+// Start Server
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
