@@ -177,6 +177,7 @@ let chosen = null;
 let sec = 30;
 let lastRound = null;
 let lastShownBetId = localStorage.getItem("lastShownBetId") || "";
+let timerStarted = false;
 
 function api(path) {
   return API_BASE + path;
@@ -212,17 +213,17 @@ async function loadUser() {
     user = await res.json();
     localStorage.setItem("user", JSON.stringify(user));
 
-    bal.innerText = Number(user.balance || 0).toFixed(2);
-    profileBal.innerText = Number(user.balance || 0).toFixed(2);
-    pname.innerText = nameOf(user);
-    uid.innerText = user.id || "";
-    rcode.innerText = user.referral_code || "";
-    refcode.innerText = user.referral_code || "";
-    editRef.value = user.referral_code || "";
+    document.getElementById("bal").innerText = Number(user.balance || 0).toFixed(2);
+    document.getElementById("profileBal").innerText = Number(user.balance || 0).toFixed(2);
+    document.getElementById("pname").innerText = nameOf(user);
+    document.getElementById("uid").innerText = user.id || "";
+    document.getElementById("rcode").innerText = user.referral_code || "";
+    document.getElementById("refcode").innerText = user.referral_code || "";
+    document.getElementById("editRef").value = user.referral_code || "";
 
-    dn.value = nameOf(user);
-    wn.value = nameOf(user);
-    wnic.value = user.nic || "";
+    document.getElementById("dn").value = nameOf(user);
+    document.getElementById("wn").value = nameOf(user);
+    document.getElementById("wnic").value = user.nic || "";
 
   } catch (e) {
     console.log("loadUser error", e);
@@ -234,23 +235,20 @@ async function loadRound() {
     const res = await fetch(api("/api/round"));
     const d = await res.json();
 
-    const roundNo = d.current?.round_no || d.round_no || 0;
-    const secondsLeft = d.current?.seconds_left ?? d.seconds_left ?? 30;
+    const roundNo = d.current?.round_no || d.round_no || 1;
 
-    round.innerText = roundNo;
-    sec = Number(secondsLeft);
-    timer.innerText = "00:" + String(sec).padStart(2, "0");
+    document.getElementById("round").innerText = roundNo;
 
     if (lastRound !== roundNo) {
       lastRound = roundNo;
       chosen = null;
-      picked.innerText = "None";
+      document.getElementById("picked").innerText = "None";
       document.querySelectorAll(".ball").forEach(x => x.classList.remove("selected"));
       checkLatestBetResult();
     }
 
     if (Array.isArray(d.previous)) {
-      prev.innerHTML = d.previous.map(x => {
+      document.getElementById("prev").innerHTML = d.previous.map(x => {
         const color = x.result_color || x.color || "";
         return `
           <div class="small-ball ${color === "Yellow" ? "yellowball" : color.toLowerCase()}">
@@ -266,9 +264,26 @@ async function loadRound() {
   }
 }
 
+function startTimer() {
+  if (timerStarted) return;
+  timerStarted = true;
+
+  setInterval(() => {
+    document.getElementById("timer").innerText =
+      "00:" + String(sec).padStart(2, "0");
+
+    sec--;
+
+    if (sec < 0) {
+      sec = 30;
+      loadRound();
+    }
+  }, 1000);
+}
+
 function sel(color, btn) {
   chosen = color;
-  picked.innerText = color;
+  document.getElementById("picked").innerText = color;
 
   document.querySelectorAll(".ball").forEach(x => x.classList.remove("selected"));
   btn.classList.add("selected");
@@ -276,7 +291,9 @@ function sel(color, btn) {
 
 async function bet() {
   if (!chosen) return alert("Please select one color");
-  if (Number(betAmount.value) < 0.5) return alert("Minimum bet is $0.50");
+  if (Number(document.getElementById("betAmount").value) < 0.5) {
+    return alert("Minimum bet is $0.50");
+  }
 
   try {
     const res = await fetch(api("/api/bet"), {
@@ -287,7 +304,7 @@ async function bet() {
       body: JSON.stringify({
         user_id: user.id,
         color: chosen,
-        amount: betAmount.value
+        amount: document.getElementById("betAmount").value
       })
     });
 
@@ -318,6 +335,8 @@ async function checkLatestBetResult() {
 
     const win = b.status === "Win";
 
+    const tradeResult = document.getElementById("tradeResult");
+
     tradeResult.style.display = "block";
     tradeResult.className = "tradeResult " + (win ? "winBox" : "loseBox");
 
@@ -344,28 +363,32 @@ async function openDeposit() {
 
   try {
     const s = await (await fetch(api("/api/settings"))).json();
-    depBid.innerText = s.deposit_binance_id || "Not set";
+    document.getElementById("depBid").innerText = s.deposit_binance_id || "Not set";
   } catch (e) {
-    depBid.innerText = "Not set";
+    document.getElementById("depBid").innerText = "Not set";
   }
 }
 
 function copyBid() {
-  navigator.clipboard.writeText(depBid.innerText);
+  navigator.clipboard.writeText(document.getElementById("depBid").innerText);
   alert("Binance ID copied");
 }
 
 async function deposit() {
-  if (Number(da.value) < 15) return alert("Minimum deposit is $15");
+  const amount = document.getElementById("da").value;
+
+  if (Number(amount) < 15) return alert("Minimum deposit is $15");
 
   const f = new FormData();
   f.append("user_id", user.id);
-  f.append("name", dn.value);
-  f.append("binance_id", db.value);
-  f.append("amount", da.value);
+  f.append("name", document.getElementById("dn").value);
+  f.append("binance_id", document.getElementById("db").value);
+  f.append("amount", amount);
 
-  if (dr.files[0]) {
-    f.append("receipt_photo", dr.files[0]);
+  const receipt = document.getElementById("dr");
+
+  if (receipt.files[0]) {
+    f.append("receipt_photo", receipt.files[0]);
   }
 
   try {
@@ -378,10 +401,9 @@ async function deposit() {
     alert(d.message || "Deposit request sent");
 
     if (res.ok) {
-      dn.value = "";
-      db.value = "";
-      da.value = "";
-      dr.value = "";
+      document.getElementById("db").value = "";
+      document.getElementById("da").value = "";
+      document.getElementById("dr").value = "";
       show("home");
     }
 
@@ -397,23 +419,25 @@ async function openWithdraw() {
   try {
     const e = await (await fetch(api("/api/withdraw-eligibility/" + user.id))).json();
 
-    eligibilityBox.innerHTML = `
+    document.getElementById("eligibilityBox").innerHTML = `
       <b>${e.ok ? "✅ Withdraw allowed" : "🔒 Withdraw locked"}</b><br>
       ${e.message || ""}<br>
       Referrals: ${e.referral_count || 0}
     `;
 
-    withdrawBtn.disabled = !e.ok;
-    withdrawBtn.style.opacity = e.ok ? 1 : .45;
-    fiveRefOption.disabled = !e.refs5;
+    document.getElementById("withdrawBtn").disabled = !e.ok;
+    document.getElementById("withdrawBtn").style.opacity = e.ok ? 1 : .45;
+    document.getElementById("fiveRefOption").disabled = !e.refs5;
 
   } catch (err) {
-    eligibilityBox.innerHTML = "Withdraw eligibility cannot load.";
+    document.getElementById("eligibilityBox").innerHTML = "Withdraw eligibility cannot load.";
   }
 }
 
 async function withdraw() {
-  if (Number(wa.value) < 15) return alert("Minimum withdraw is $15");
+  const amount = document.getElementById("wa").value;
+
+  if (Number(amount) < 15) return alert("Minimum withdraw is $15");
 
   try {
     const res = await fetch(api("/api/withdraw"), {
@@ -423,11 +447,11 @@ async function withdraw() {
       },
       body: JSON.stringify({
         user_id: user.id,
-        name: wn.value,
-        nic: wnic.value,
-        binance_id: wb.value,
-        amount: wa.value,
-        method: wm.value
+        name: document.getElementById("wn").value,
+        nic: document.getElementById("wnic").value,
+        binance_id: document.getElementById("wb").value,
+        amount: amount,
+        method: document.getElementById("wm").value
       })
     });
 
@@ -435,8 +459,8 @@ async function withdraw() {
     alert(d.message || "Withdraw request sent");
 
     if (res.ok) {
-      wb.value = "";
-      wa.value = "";
+      document.getElementById("wb").value = "";
+      document.getElementById("wa").value = "";
       show("home");
     }
 
@@ -451,17 +475,17 @@ async function openReferral() {
   try {
     const d = await (await fetch(api("/api/user/" + user.id + "/referrals"))).json();
 
-    refList.innerHTML = d.length
+    document.getElementById("refList").innerHTML = d.length
       ? d.map(x => `<p>#${x.id} ${nameOf(x)} - ${x.status} - ${new Date(x.created_at).toLocaleDateString()}</p>`).join("")
       : "No referrals yet";
 
   } catch (e) {
-    refList.innerHTML = "No referrals yet";
+    document.getElementById("refList").innerHTML = "No referrals yet";
   }
 }
 
 function copyReferral() {
-  navigator.clipboard.writeText(refcode.innerText);
+  navigator.clipboard.writeText(document.getElementById("refcode").innerText);
   alert("Copied");
 }
 
@@ -473,7 +497,7 @@ async function saveRef() {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        referral_code: editRef.value
+        referral_code: document.getElementById("editRef").value
       })
     });
 
@@ -493,7 +517,7 @@ async function loadBets() {
 
     const d = await res.json();
 
-    bets.innerHTML = d.map(b => `
+    document.getElementById("bets").innerHTML = d.map(b => `
       <tr>
         <td>${b.round_no}</td>
         <td>${b.color}</td>
@@ -508,20 +532,13 @@ async function loadBets() {
   }
 }
 
-setInterval(() => {
-  if (sec > 0) {
-    sec--;
-    timer.innerText = "00:" + String(sec).padStart(2, "0");
-  }
-}, 1000);
-
-setInterval(() => {
-  loadRound();
-  loadUser();
-}, 2000);
-
 loadUser();
 loadRound();
+startTimer();
+
+setInterval(() => {
+  loadUser();
+}, 5000);
 </script>
 
 </body>
