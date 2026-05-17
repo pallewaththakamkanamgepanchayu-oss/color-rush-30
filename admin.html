@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Color Rush 30 - Admin Panel</title>
+
+  <style>
+    *{
+      margin:0;
+      padding:0;
+      box-sizing:border-box;
+      font-family:Arial, Helvetica, sans-serif;
+    }
+
+    body{
+      background:#0f172a;
+      color:white;
+      display:flex;
+      min-height:100vh;
+    }
+
+    .sidebar{
+      width:260px;
+      background:#111827;
+      padding:20px;
+    }
+
+    .sidebar h1{
+      font-size:28px;
+      margin-bottom:10px;
+    }
+
+    .yellow{
+      color:#facc15;
+    }
+
+    .sidebar p{
+      color:#9ca3af;
+      margin-bottom:30px;
+    }
+
+    .menu{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+
+    .menu button{
+      padding:14px;
+      border:none;
+      background:#1f2937;
+      color:white;
+      border-radius:10px;
+      cursor:pointer;
+      text-align:left;
+      font-size:15px;
+    }
+
+    .menu button:hover,
+    .menu button.active{
+      background:#7c3aed;
+    }
+
+    .main{
+      flex:1;
+      padding:20px;
+      overflow:auto;
+    }
+
+    .page{
+      display:none;
+    }
+
+    .page.active{
+      display:block;
+    }
+
+    .card{
+      background:#111827;
+      padding:20px;
+      border-radius:16px;
+      margin-top:20px;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+      gap:20px;
+      margin-top:20px;
+    }
+
+    .stat{
+      text-align:center;
+    }
+
+    .stat h1{
+      margin-top:10px;
+      font-size:32px;
+      color:#facc15;
+    }
+
+    table{
+      width:100%;
+      border-collapse:collapse;
+      margin-top:15px;
+    }
+
+    table th,
+    table td{
+      border-bottom:1px solid #374151;
+      padding:12px;
+      text-align:left;
+    }
+
+    table th{
+      background:#1f2937;
+    }
+
+    .btn{
+      background:#7c3aed;
+      border:none;
+      color:white;
+      padding:10px 18px;
+      border-radius:10px;
+      cursor:pointer;
+    }
+
+    .btn2{
+      border:none;
+      padding:8px 12px;
+      border-radius:8px;
+      cursor:pointer;
+      margin-right:5px;
+    }
+
+    .ok{
+      background:#16a34a;
+      color:white;
+    }
+
+    .bad{
+      background:#dc2626;
+      color:white;
+    }
+
+    .view{
+      background:#2563eb;
+      color:white;
+    }
+
+    .badge{
+      padding:5px 10px;
+      border-radius:20px;
+      font-size:12px;
+    }
+
+    .Approved{
+      background:#16a34a;
+    }
+
+    .Rejected{
+      background:#dc2626;
+    }
+
+    .Pending{
+      background:#f59e0b;
+    }
+
+    input,
+    select{
+      width:100%;
+      padding:12px;
+      border:none;
+      border-radius:10px;
+      margin-top:10px;
+      background:#1f2937;
+      color:white;
+    }
+
+    .modal{
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,0.7);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:20px;
+    }
+
+    .modalbox{
+      background:#111827;
+      width:100%;
+      max-width:700px;
+      padding:20px;
+      border-radius:20px;
+      max-height:90vh;
+      overflow:auto;
+    }
+
+    img{
+      width:100%;
+      margin-top:10px;
+      border-radius:12px;
+    }
+
+    .adminHero{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+    }
+
+    .liveDot{
+      color:#22c55e;
+      font-size:18px;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="sidebar">
+  <h1>COLOR <span class="yellow">RUSH</span> 30</h1>
+  <p>ADMIN PANEL</p>
+
+  <div class="menu">
+    <button class="active" onclick="page('dash')">🏠 Dashboard</button>
+    <button onclick="page('users')">👥 Users</button>
+    <button onclick="page('deps')">📥 Deposits</button>
+    <button onclick="page('wds')">📤 Withdraws</button>
+    <button onclick="page('rounds')">🎲 Result Control</button>
+    <button onclick="page('edit')">⚙ Settings</button>
+  </div>
+</div>
+
+<main class="main">
+
+  <div id="dash" class="page active">
+    <div class="adminHero">
+      <div>
+        <h1>Dashboard</h1>
+        <p>Professional overview</p>
+      </div>
+
+      <div class="liveDot">● Live</div>
+    </div>
+
+    <div class="grid">
+      <div class="card stat">
+        <p>Total Users</p>
+        <h1 id="su">0</h1>
+      </div>
+
+      <div class="card stat">
+        <p>Total Deposits</p>
+        <h1>$<span id="sd">0</span></h1>
+      </div>
+
+      <div class="card stat">
+        <p>Total Withdraws</p>
+        <h1>$<span id="sw">0</span></h1>
+      </div>
+
+      <div class="card stat">
+        <p>Total Bets</p>
+        <h1 id="sb">0</h1>
+      </div>
+    </div>
+  </div>
+
+  <div id="users" class="page">
+    <h1>Users</h1>
+
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Balance</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+
+        <tbody id="ut"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="deps" class="page">
+    <h1>Deposit Requests</h1>
+
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Amount</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+
+        <tbody id="dt"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="wds" class="page">
+    <h1>Withdraw Requests</h1>
+
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Amount</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+
+        <tbody id="wt"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="rounds" class="page">
+    <h1>Result Control</h1>
+
+    <div class="card">
+      <select id="result">
+        <option>Yellow</option>
+        <option>Red</option>
+        <option>Green</option>
+        <option>Random</option>
+      </select>
+
+      <br><br>
+
+      <button class="btn" onclick="saveNextResult()">
+        Save Next Result
+      </button>
+    </div>
+  </div>
+
+  <div id="edit" class="page">
+    <h1>Settings</h1>
+
+    <div class="card">
+      <label>Deposit Binance ID</label>
+
+      <input id="payid">
+
+      <br><br>
+
+      <button class="btn" onclick="savePay()">
+        Save
+      </button>
+    </div>
+  </div>
+
+</main>
+
+<div class="modal" id="modal">
+  <div class="modalbox">
+    <button class="btn2 bad" onclick="modal.style.display='none'">
+      Close
+    </button>
+
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<script>
+
+const API_BASE = "https://color-rush-30-production.up.railway.app";
+
+function page(id){
+
+  document.querySelectorAll('.page').forEach(p=>{
+    p.classList.remove('active');
+  });
+
+  document.getElementById(id).classList.add('active');
+}
+
+function badge(s){
+  return `<span class="badge ${s}">${s}</span>`;
+}
+
+async function loadDashboard(){
+
+  try{
+
+    let st = await (
+      await fetch(API_BASE + "/api/admin/stats")
+    ).json();
+
+    su.innerText = st.users || 0;
+
+    sd.innerText = Number(st.deposits?.s || 0).toFixed(2);
+
+    sw.innerText = Number(st.withdraws?.s || 0).toFixed(2);
+
+    sb.innerText = st.bets || 0;
+
+  }catch(err){
+    console.log(err);
+  }
+}
+
+async function loadUsers(){
+
+  try{
+
+    let d = await (
+      await fetch(API_BASE + "/api/admin/users")
+    ).json();
+
+    ut.innerHTML = d.map(u=>`
+      <tr>
+        <td>${u.id}</td>
+        <td>${u.name || 'User'}</td>
+        <td>$${Number(u.balance || 0).toFixed(2)}</td>
+        <td>${badge(u.status || 'Pending')}</td>
+      </tr>
+    `).join('');
+
+  }catch(err){
+    console.log(err);
+  }
+}
+
+async function loadDeposits(){
+
+  try{
+
+    let d = await (
+      await fetch(API_BASE + "/api/admin/deposits")
+    ).json();
+
+    dt.innerHTML = d.map(x=>`
+      <tr>
+        <td>${x.id}</td>
+        <td>${x.name}</td>
+        <td>$${Number(x.amount).toFixed(2)}</td>
+        <td>${badge(x.status)}</td>
+      </tr>
+    `).join('');
+
+  }catch(err){
+    console.log(err);
+  }
+}
+
+async function loadWithdraws(){
+
+  try{
+
+    let d = await (
+      await fetch(API_BASE + "/api/admin/withdraws")
+    ).json();
+
+    wt.innerHTML = d.map(x=>`
+      <tr>
+        <td>${x.id}</td>
+        <td>${x.name}</td>
+        <td>$${Number(x.amount).toFixed(2)}</td>
+        <td>${badge(x.status)}</td>
+      </tr>
+    `).join('');
+
+  }catch(err){
+    console.log(err);
+  }
+}
+
+async function saveNextResult(){
+
+  let color = document.getElementById("result").value;
+
+  let d = await (
+    await fetch(API_BASE + "/api/admin/next-result",{
+      method:"PUT",
+      headers:{
+        "Content-Type":"application/json"
+      },
+      body:JSON.stringify({
+        result_color:color
+      })
+    })
+  ).json();
+
+  alert(d.message || "Saved");
+}
+
+async function savePay(){
+
+  let id = document.getElementById("payid").value;
+
+  let d = await (
+    await fetch(API_BASE + "/api/settings/payment",{
+      method:"PUT",
+      headers:{
+        "Content-Type":"application/json"
+      },
+      body:JSON.stringify({
+        deposit_binance_id:id
+      })
+    })
+  ).json();
+
+  alert(d.message || "Saved");
+}
+
+loadDashboard();
+loadUsers();
+loadDeposits();
+loadWithdraws();
+
+</script>
+
+</body>
+</html>
